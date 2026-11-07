@@ -1,0 +1,9 @@
+{
+  "upstream_commit": "6a4bb55ea54834d8265ce52024d3e3c75db30d38",
+  "archive_sha256": "9b336cd5d32bce5a95f3f2585eef4109e7eabe0265bf6ab17363b78ff1cafb10",
+  "node_version": "22.23.2",
+  "node_darwin_arm64_sha256": "61130f394c1630d211dd50aecc4353d379480f36d3ac913cd85dbba1aed585c6",
+  "sqlite_prebuild_sha256": "63241aadcd63e71febe5aff617f2dbac7ad461896241f479b11ec746d805bb7a",
+  "node_linux_x64_sha256": "b294a556e639d64338823920e5866c21c02741742d2e1529ee1a225c1ec9252a",
+  "sqlite_linux_x64_prebuild_sha256": "ea6a09d12d43cca31782ab0e09ecf442b8e2a49f5a02b219f5f117a6601ed306"
+}

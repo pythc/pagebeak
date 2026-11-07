@@ -1,0 +1,98 @@
+# Linux campus release. All ingress remains on loopback behind the existing TLS edge.
+# Run from /data/agent-knowledge-base with --env-file release.env.
+name: zhixu-campus
+services:
+  postgres:
+    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    restart: unless-stopped
+    cpus: 1
+    mem_limit: 1g
+    pids_limit: 128
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: akb
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-password
+    volumes:
+      - ${ZHIXU_STATE:?}/postgres:/var/lib/postgresql
+      - ${ZHIXU_STATE:?}/operator/postgres-password:/run/secrets/postgres-password:ro
+    ports: ["127.0.0.1:55471:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d akb"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  files:
+    image: cloudreve/cloudreve:4.19.1@sha256:5c6c5baf7fa5bc6e1bb9a7509c09dde00e80b618d180244eb1d5f7e36b358ea2
+    entrypoint: ["/cloudreve/cloudreve"]
+    command: ["server"]
+    restart: unless-stopped
+    cpus: 1
+    mem_limit: 1g
+    pids_limit: 256
+    ports: ["127.0.0.1:5878:5212"]
+    volumes: ["${ZHIXU_STATE:?}/files:/cloudreve/data"]
+    environment:
+      CR_SETTING_DEFAULT_thumb_ffmpeg_enabled: "0"
+      CR_SETTING_DEFAULT_thumb_vips_enabled: "0"
+      CR_SETTING_DEFAULT_thumb_libreoffice_enabled: "0"
+      CR_SETTING_DEFAULT_media_meta_ffprobe: "0"
+      CR_SETTING_DEFAULT_thumb_libraw_enabled: "0"
+  weknora:
+    # Pin independently so an application-only update need not restart the store.
+    image: ${ZHIXU_WEKNORA_IMAGE:-${ZHIXU_RELEASE_IMAGE:?}}
+    command: ["/app/.venv/bin/python", "scripts/run_weknora.py", "--binary", "/opt/weknora/weknora", "--source", "/opt/weknora/source", "--state", "/app/data/weknora"]
+    network_mode: host
+    restart: unless-stopped
+    init: true
+    cpus: 1
+    mem_limit: 1536m
+    pids_limit: 256
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    volumes: ["${ZHIXU_STATE:?}/weknora:/app/data/weknora"]
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c", "import urllib.request,json; r=json.load(urllib.request.urlopen('http://127.0.0.1:5881/zhixu/mode',timeout=3)); assert r['external_executor'] and not r['backend_inference']"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+  app:
+    image: ${ZHIXU_RELEASE_IMAGE:?}
+    command: ["/app/.venv/bin/python", "scripts/dev.py"]
+    network_mode: host
+    restart: unless-stopped
+    init: true
+    cpus: 2
+    mem_limit: 3g
+    pids_limit: 512
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    env_file: ["${ZHIXU_STATE:?}/operator/runtime.env"]
+    volumes:
+      - ${ZHIXU_STATE:?}/objects:/app/data/objects
+      - ${ZHIXU_STATE:?}/secrets:/app/secrets
+      - ${ZHIXU_STATE:?}/work:/app/work
+      - /run/zhixu-preview:/run/zhixu-preview:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+      weknora: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c", "import urllib.request; assert urllib.request.urlopen('http://127.0.0.1:5876/healthz',timeout=3).status==200"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  proxy:
+    image: caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    network_mode: host
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 256m
+    pids_limit: 64
+    volumes:
+      - ${ZHIXU_RELEASE_DIR:?}/deploy/campus/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${ZHIXU_RELEASE_DIR:?}/frontend:/srv/frontend:ro
+    depends_on:
+      app: {condition: service_healthy}
+networks:
+  default:
+    ipam:
+      config: [{subnet: "10.223.71.0/24"}]

@@ -1,0 +1,4 @@
+interface:
+  display_name: "知识库管家"
+  short_description: "引导初始化个人知识库，判断资料收录、持续整理目录并帮助补齐资料"
+  default_prompt: "请使用 $personal-knowledge，根据我已有的资料和用途，帮我初始化或继续维护知识库。"

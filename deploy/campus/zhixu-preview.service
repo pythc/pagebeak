@@ -1,0 +1,28 @@
+[Unit]
+Description=Zhixu isolated Office preview broker
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/data/agent-knowledge-base/current
+Environment=PYTHONPATH=/data/agent-knowledge-base/current/backend
+Environment=PYTHONDONTWRITEBYTECODE=1
+RuntimeDirectory=zhixu-preview
+RuntimeDirectoryMode=0755
+ExecStart=/usr/bin/python3 -m akb.preview_broker --socket /run/zhixu-preview/preview.sock --private-root /data/agent-knowledge-base/preview-private --group 10001
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/run/zhixu-preview /data/agent-knowledge-base/preview-private
+PrivateTmp=true
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=768M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target

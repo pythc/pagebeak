@@ -1,0 +1,9 @@
+{
+  "pypdf": {
+    "version": "6.21.0",
+    "license": "BSD-3-Clause",
+    "license_in_archive": "LICENSE",
+    "sha256": "31621f8425a729b06366089fe494cfeb1a5a70649f3413900e41843211a861b1",
+    "runtime_install": false
+  }
+}

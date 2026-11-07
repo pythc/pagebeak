@@ -1,0 +1,7 @@
+{
+  "backend_version": "4.19.1",
+  "upstream_repository": "https://github.com/cloudreve/frontend",
+  "upstream_commit": "19da0fe1ecd40971fafa813983d769fdce41573c",
+  "archive_url": "https://codeload.github.com/cloudreve/frontend/tar.gz/19da0fe1ecd40971fafa813983d769fdce41573c",
+  "archive_sha256": "38c14a3d386f41eaf583119bc75f4239cc21ddfc801ed2d8c7a87fb448726ef8"
+}

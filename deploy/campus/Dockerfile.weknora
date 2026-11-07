@@ -1,0 +1,48 @@
+FROM python:3.12-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70 AS weknora
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends ca-certificates gcc g++ libc6-dev libsqlite3-dev git \
+    && rm -rf /var/lib/apt/lists/*
+COPY vendor/go1.26.3.linux-amd64.tar.gz /tmp/go.tar.gz
+RUN echo '2b2cfc7148493da5e73981bffbf3353af381d5f93e789c82c79aff64962eb556  /tmp/go.tar.gz' | sha256sum -c - \
+    && tar -xzf /tmp/go.tar.gz -C /usr/local && rm /tmp/go.tar.gz
+ENV PATH=/usr/local/go/bin:$PATH
+WORKDIR /src/weknora
+COPY vendor/weknora.tar.gz /tmp/weknora.tar.gz
+RUN echo '36992738cc7a74ce79d4b9209fb7d0234a4a94de99f584a5709ca2325cd8d34c  /tmp/weknora.tar.gz' | sha256sum -c - \
+    && tar -xzf /tmp/weknora.tar.gz --strip-components=1 -C /src/weknora
+COPY integrations/weknora/external-executor.patch /tmp/external-executor.patch
+RUN git apply --check /tmp/external-executor.patch && git apply /tmp/external-executor.patch
+COPY vendor/go-mod-cache.tar.gz /tmp/go-mod-cache.tar.gz
+RUN mkdir -p /go/pkg/mod/cache/download \
+    && tar -xzf /tmp/go-mod-cache.tar.gz -C /go/pkg/mod/cache/download \
+    && rm /tmp/go-mod-cache.tar.gz
+ENV GOPATH=/go GOPROXY=off GOTOOLCHAIN=local
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    go mod verify && CGO_ENABLED=1 GOMAXPROCS=3 go build -p 3 -tags sqlite_fts5 \
+    -ldflags '-X github.com/Tencent/WeKnora/internal/handler.Edition=lite -X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn' \
+    -o /weknora ./cmd/server
+
+FROM python:3.12-slim-bookworm@sha256:6a0e06f5ba0b373d051aabd3fffb9b873f27f9a2a3a14bcbe37dee6f0e3bbc70
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_LINK_MODE=copy DEBIAN_FRONTEND=noninteractive PYTHONPATH=/app/backend
+WORKDIR /app
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends ca-certificates libgomp1 libsqlite3-0 libreoffice-writer libreoffice-calc libreoffice-impress fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
+RUN python -m pip install --no-cache-dir uv==0.11.16
+COPY pyproject.toml uv.lock README.md /app/
+RUN uv sync --frozen --no-dev --no-install-project
+COPY --from=weknora /weknora /opt/weknora/weknora
+COPY --from=weknora /src/weknora/config /opt/weknora/source/config
+COPY --from=weknora /src/weknora/migrations /opt/weknora/source/migrations
+# gojieba records this build-time default dictionary path in the binary.
+COPY --from=weknora /go/pkg/mod/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict /go/pkg/mod/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict
+COPY backend/akb /app/backend/akb
+COPY migrations /app/migrations
+COPY scripts /app/scripts
+COPY integrations /app/integrations
+COPY alembic.ini /app/alembic.ini
+RUN useradd --uid 10001 --create-home zhixu \
+    && mkdir -p /app/data /app/secrets /app/work \
+    && chown 10001:10001 /app/data /app/secrets /app/work
+USER 10001:10001
+CMD ["/app/.venv/bin/python", "scripts/dev.py"]

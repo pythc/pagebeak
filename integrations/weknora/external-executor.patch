@@ -1,0 +1,454 @@
+--- /dev/null
++++ b/internal/externalmode/mode.go
+@@ -0,0 +1,28 @@
++// Package externalmode enforces the Zhixu external WorkBuddy executor contract.
++package externalmode
++
++import (
++	"encoding/json"
++	"errors"
++	"os"
++)
++
++func Enabled() bool { return os.Getenv("WEKNORA_EXTERNAL_EXECUTOR") == "workbuddy" }
++
++var ErrDisabled = errors.New("server AI inference disabled: execute semantic work in WorkBuddy")
++
++// SearchText unwraps only our transport envelope for indexing. The immutable
++// metadata retains the envelope for exact round-trip reads. Indexing JSON escape
++// sequences would turn a line-starting English word into a different token.
++func SearchText(content string) string {
++	if !Enabled() {
++		return content
++	}
++	var envelope struct {
++		Body *string `json:"body"`
++	}
++	if json.Unmarshal([]byte(content), &envelope) == nil && envelope.Body != nil {
++		return *envelope.Body
++	}
++	return content
++}
+--- /dev/null
++++ b/internal/models/embedding/keyword_only.go
+@@ -0,0 +1,22 @@
++package embedding
++
++import (
++	"context"
++	"github.com/Tencent/WeKnora/internal/externalmode"
++)
++
++// KeywordOnly is metadata for the keyword index. It never produces fake vectors.
++type KeywordOnly struct{}
++
++func (*KeywordOnly) Embed(context.Context, string) ([]float32, error) {
++	return nil, externalmode.ErrDisabled
++}
++func (*KeywordOnly) BatchEmbed(context.Context, []string) ([][]float32, error) {
++	return nil, externalmode.ErrDisabled
++}
++func (*KeywordOnly) BatchEmbedWithPool(context.Context, Embedder, []string) ([][]float32, error) {
++	return nil, externalmode.ErrDisabled
++}
++func (*KeywordOnly) GetModelName() string { return "keyword-only-no-model" }
++func (*KeywordOnly) GetModelID() string   { return "" }
++func (*KeywordOnly) GetDimensions() int   { return 0 }
+--- a/internal/application/service/model.go
++++ b/internal/application/service/model.go
+@@ -5,6 +5,7 @@
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"github.com/Tencent/WeKnora/internal/externalmode"
+ 	"strings"
+ 	"unicode/utf8"
+ 
+@@ -595,6 +596,9 @@
+ // GetEmbeddingModel retrieves and initializes an embedding model instance
+ // Takes a model ID and returns an Embedder interface implementation
+ func (s *modelService) GetEmbeddingModel(ctx context.Context, modelId string) (embedding.Embedder, error) {
++	if externalmode.Enabled() {
++		return &embedding.KeywordOnly{}, nil
++	}
+ 	// Get the model details
+ 	model, err := s.GetModelByID(ctx, modelId)
+ 	if err != nil {
+@@ -625,6 +629,9 @@
+ // This is used for cross-tenant knowledge base sharing where the embedding model from
+ // the source tenant must be used to ensure vector compatibility
+ func (s *modelService) GetEmbeddingModelForTenant(ctx context.Context, modelId string, tenantID uint64) (embedding.Embedder, error) {
++	if externalmode.Enabled() {
++		return &embedding.KeywordOnly{}, nil
++	}
+ 	// Check if model ID is empty
+ 	if modelId == "" {
+ 		logger.Error(ctx, "Model ID is empty")
+@@ -672,6 +679,9 @@
+ // GetRerankModel retrieves and initializes a reranking model instance
+ // Takes a model ID and returns a Reranker interface implementation
+ func (s *modelService) GetRerankModel(ctx context.Context, modelId string) (rerank.Reranker, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	// Get the model details
+ 	model, err := s.GetModelByID(ctx, modelId)
+ 	if err != nil {
+@@ -701,6 +711,9 @@
+ // GetChatModel retrieves and initializes a chat model instance
+ // Takes a model ID and returns a Chat interface implementation
+ func (s *modelService) GetChatModel(ctx context.Context, modelId string) (chat.Chat, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	// Check if model ID is empty
+ 	if modelId == "" {
+ 		logger.Error(ctx, "Model ID is empty")
+@@ -742,6 +755,9 @@
+ 
+ // GetVLMModel retrieves and initializes a vision language model instance.
+ func (s *modelService) GetVLMModel(ctx context.Context, modelId string) (vlm.VLM, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	if modelId == "" {
+ 		return nil, errors.New("model ID cannot be empty")
+ 	}
+@@ -779,6 +795,9 @@
+ 
+ // GetASRModel retrieves and initializes an automatic speech recognition model instance.
+ func (s *modelService) GetASRModel(ctx context.Context, modelId string) (asr.ASR, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	if modelId == "" {
+ 		return nil, errors.New("model ID cannot be empty")
+ 	}
+--- a/internal/models/chat/chat.go
++++ b/internal/models/chat/chat.go
+@@ -8,6 +8,7 @@
+ import (
+ 	"context"
+ 	"fmt"
++	"github.com/Tencent/WeKnora/internal/externalmode"
+ 	"strings"
+ 
+ 	"github.com/Tencent/WeKnora/internal/models/api"
+@@ -119,6 +120,9 @@
+ 
+ // NewChat 创建聊天实例
+ func NewChat(config *ChatConfig, ollamaService *ollama.OllamaService) (Chat, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	var c Chat
+ 	var err error
+ 	switch strings.ToLower(string(config.Source)) {
+@@ -168,6 +172,9 @@
+ 
+ // NewRemoteChat builds the protocol client for a remote model.
+ func NewRemoteChat(config *ChatConfig) (Chat, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	resolved, err := Resolve(config)
+ 	if err != nil {
+ 		return nil, err
+--- a/internal/models/embedding/embedder.go
++++ b/internal/models/embedding/embedder.go
+@@ -4,6 +4,7 @@
+ 	"context"
+ 	"errors"
+ 	"fmt"
++	"github.com/Tencent/WeKnora/internal/externalmode"
+ 	"strings"
+ 
+ 	"github.com/Tencent/WeKnora/internal/logger"
+@@ -142,6 +143,9 @@
+ 
+ // NewEmbedder creates an embedder based on the configuration
+ func NewEmbedder(config Config, pooler EmbedderPooler, ollamaService *ollama.OllamaService) (Embedder, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	e, err := newEmbedder(config, pooler, ollamaService)
+ 	if err != nil {
+ 		return e, err
+--- a/internal/models/rerank/reranker.go
++++ b/internal/models/rerank/reranker.go
+@@ -5,6 +5,7 @@
+ 	"context"
+ 	"encoding/json"
+ 	"fmt"
++	"github.com/Tencent/WeKnora/internal/externalmode"
+ 	"time"
+ 
+ 	"github.com/Tencent/WeKnora/internal/logger"
+@@ -150,6 +151,9 @@
+ 
+ // NewReranker creates a reranker based on the configuration
+ func NewReranker(config *RerankerConfig) (Reranker, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	r, err := newReranker(config)
+ 	if err != nil {
+ 		return r, err
+--- a/internal/models/vlm/vlm.go
++++ b/internal/models/vlm/vlm.go
+@@ -4,6 +4,7 @@
+ 	"context"
+ 	"errors"
+ 	"fmt"
++	"github.com/Tencent/WeKnora/internal/externalmode"
+ 	"strings"
+ 
+ 	"github.com/Tencent/WeKnora/internal/logger"
+@@ -115,6 +116,9 @@
+ 
+ // NewVLM creates a VLM instance based on the provided configuration.
+ func NewVLM(config *Config, ollamaService *ollama.OllamaService) (VLM, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	v, err := newVLM(config, ollamaService)
+ 	if err != nil {
+ 		return v, err
+@@ -148,6 +152,9 @@
+ 
+ // NewVLMFromLegacyConfig creates a VLM from a legacy VLMConfig (inline BaseURL/APIKey/ModelName).
+ func NewVLMFromLegacyConfig(vlmCfg types.VLMConfig, ollamaService *ollama.OllamaService) (VLM, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	if !vlmCfg.IsEnabled() {
+ 		return nil, fmt.Errorf("VLM config is not enabled")
+ 	}
+--- a/internal/models/asr/asr.go
++++ b/internal/models/asr/asr.go
+@@ -2,6 +2,7 @@
+ 
+ import (
+ 	"context"
++	"github.com/Tencent/WeKnora/internal/externalmode"
+ 	"strings"
+ 
+ 	"github.com/Tencent/WeKnora/internal/types"
+@@ -88,6 +89,9 @@
+ 
+ // NewASR creates an ASR instance based on the provided configuration.
+ func NewASR(config *Config) (ASR, error) {
++	if externalmode.Enabled() {
++		return nil, externalmode.ErrDisabled
++	}
+ 	a, err := newASR(config)
+ 	return wrapASRLangfuse(a, err)
+ }
+--- a/internal/application/service/retriever/keywords_vector_hybrid_indexer.go
++++ b/internal/application/service/retriever/keywords_vector_hybrid_indexer.go
+@@ -3,6 +3,7 @@
+ import (
+ 	"context"
+ 	"fmt"
++	"github.com/Tencent/WeKnora/internal/externalmode"
+ 	"regexp"
+ 	"slices"
+ 	"strings"
+@@ -72,7 +73,7 @@
+ ) error {
+ 	params := make(map[string]any)
+ 	embeddingMap := make(map[string][]float32)
+-	if slices.Contains(retrieverTypes, types.VectorRetrieverType) {
++	if !externalmode.Enabled() && slices.Contains(retrieverTypes, types.VectorRetrieverType) {
+ 		embedding, err := embedder.Embed(ctx, sanitizeForEmbedding(ctx, indexInfo.Content))
+ 		if err != nil {
+ 			return err
+@@ -92,7 +93,7 @@
+ 		return nil
+ 	}
+ 
+-	if slices.Contains(retrieverTypes, types.VectorRetrieverType) {
++	if !externalmode.Enabled() && slices.Contains(retrieverTypes, types.VectorRetrieverType) {
+ 		const (
+ 			batchSize      = 40
+ 			maxConcurrency = 5
+@@ -297,7 +298,7 @@
+ 	retrieverTypes []types.RetrieverType,
+ ) int64 {
+ 	params := make(map[string]any)
+-	if slices.Contains(retrieverTypes, types.VectorRetrieverType) {
++	if !externalmode.Enabled() && slices.Contains(retrieverTypes, types.VectorRetrieverType) {
+ 		embeddingMap := make(map[string][]float32)
+ 		// just for estimate storage size
+ 		for _, indexInfo := range indexInfoList {
+--- a/internal/router/router.go
++++ b/internal/router/router.go
+@@ -2,6 +2,7 @@
+ 
+ import (
+ 	"context"
++	"github.com/Tencent/WeKnora/internal/externalmode"
+ 	"os"
+ 	"strings"
+ 	"time"
+@@ -103,6 +104,9 @@
+ // NewRouter 创建新的路由
+ func NewRouter(params RouterParams) *gin.Engine {
+ 	r := gin.New()
++	r.GET("/zhixu/mode", func(c *gin.Context) {
++		c.JSON(200, gin.H{"external_executor": externalmode.Enabled(), "backend_inference": !externalmode.Enabled(), "retrieval": "keyword", "contract": "zhixu-weknora-v1"})
++	})
+ 	r.ContextWithFallback = true
+ 	// 清理 FormFile/MultipartForm 解析产生的 multipart 临时文件，避免容器 /tmp 持续增长。
+ 	r.Use(middleware.MultipartFormCleanup())
+--- a/internal/application/service/knowledge_create.go
++++ b/internal/application/service/knowledge_create.go
+@@ -5,6 +5,7 @@
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"github.com/Tencent/WeKnora/internal/externalmode"
+ 	"mime/multipart"
+ 	"net/url"
+ 	"path"
+@@ -1335,7 +1336,7 @@
+ func (s *knowledgeService) triggerManualProcessing(ctx context.Context,
+ 	kb *types.KnowledgeBase, knowledge *types.Knowledge, content string, doSync bool,
+ ) error {
+-	clean := strings.TrimSpace(content)
++	clean := strings.TrimSpace(externalmode.SearchText(content))
+ 	if clean == "" {
+ 		// The caller already marked the row processing; with nothing to
+ 		// index no later stage would ever move it on.
+@@ -1354,7 +1355,7 @@
+ 	var resolvedImages []docparser.StoredImage
+ 	var fileSvc interfaces.FileService
+ 	var inlineParseErr error
+-	if s.imageResolver != nil {
++	if !externalmode.Enabled() && s.imageResolver != nil {
+ 		fileSvc = s.resolveFileService(ctx, kb)
+ 		updatedMarkdown, inlineImages, resolveErr := s.imageResolver.ResolveAndStore(ctx,
+ 			&types.ReadResult{MarkdownContent: clean}, fileSvc, knowledge.TenantID)
+@@ -1401,7 +1402,7 @@
+ 		return fmt.Errorf("%s: %w", message, asynq.SkipRetry)
+ 	}
+ 
+-	if s.imageResolver != nil {
++	if !externalmode.Enabled() && s.imageResolver != nil {
+ 		updatedContent, storedImages, resolveErr := s.imageResolver.ResolveRemoteImages(ctx, clean, fileSvc, knowledge.TenantID)
+ 		if resolveErr != nil {
+ 			logger.Warnf(ctx, "Remote image resolution partially failed: %v", resolveErr)
+--- a/go.mod
++++ b/go.mod
+@@ -283,7 +283,7 @@
+ 	github.com/sagikazarmark/locafero v0.11.0 // indirect
+ 	github.com/samber/lo v1.49.1 // indirect
+ 	github.com/shirou/gopsutil/v3 v3.23.12 // indirect
+-	github.com/shoenig/go-m1cpu v0.1.6 // indirect
++	github.com/shoenig/go-m1cpu v0.2.2 // indirect
+ 	github.com/soheilhy/cmux v0.1.5 // indirect
+ 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
+ 	github.com/spaolacci/murmur3 v1.1.0 // indirect
+--- a/go.sum
++++ b/go.sum
+@@ -3540,8 +3540,11 @@
+ github.com/shirou/gopsutil/v4 v4.26.4/go.mod h1:LZ6ewCSkBqUpvSOf+LsTGnRinC6iaNUNMGBtDkJBaLQ=
+ github.com/shoenig/go-m1cpu v0.1.6 h1:nxdKQNcEB6vzgA2E2bvzKIYRuNj7XNJ4S/aRSwKzFtM=
+ github.com/shoenig/go-m1cpu v0.1.6/go.mod h1:1JJMcUBvfNwpq05QDQVAnx3gUHr9IYF7GNg9SUEw2VQ=
++github.com/shoenig/go-m1cpu v0.2.2 h1:4nc55oVv7nygGnfI9bhLCLzUEs4794y0Bkqx4q2zy7Y=
++github.com/shoenig/go-m1cpu v0.2.2/go.mod h1:KkDOw6m3ZJQAPHbrzkZki4hnx+pDRR1Lo+ldA56wD5w=
+ github.com/shoenig/test v0.6.4 h1:kVTaSd7WLz5WZ2IaoM0RSzRsUD+m8wRR+5qvntpn4LU=
+ github.com/shoenig/test v0.6.4/go.mod h1:byHiCGXqrVaflBLAMq/srcZIHynQPQgeyvkvXnjqq0k=
++github.com/shoenig/test v1.7.0 h1:eWcHtTXa6QLnBvm0jgEabMRN/uJ4DMV3M8xUGgRkZmk=
+ github.com/shopspring/decimal v1.2.0 h1:abSATXmQEYyShuxI4/vyW3tV1MrKAJzCZ/0zLUXYbsQ=
+ github.com/shopspring/decimal v1.2.0/go.mod h1:DKyhrW/HYNuLGql+MJL6WCR6knT2jwCFRcu2hWCYk4o=
+ github.com/shurcooL/sanitized_anchor_name v1.0.0 h1:PdmoCO6wvbs+7yrJyMORt4/BmY5IYyJwS/kOiWx8mHo=
+--- /dev/null
++++ b/internal/application/service/external_executor_test.go
+@@ -0,0 +1,19 @@
++package service
++import (
++ "context"
++ "errors"
++ "testing"
++ "github.com/Tencent/WeKnora/internal/externalmode"
++)
++func TestExternalExecutorBlocksInferenceBeforeModelLookup(t *testing.T) {
++ t.Setenv("WEKNORA_EXTERNAL_EXECUTOR", "workbuddy")
++ s := &modelService{}
++ ctx := context.Background()
++ if _,e:=s.GetChatModel(ctx,"should-never-load"); !errors.Is(e,externalmode.ErrDisabled){t.Fatal(e)}
++ if _,e:=s.GetRerankModel(ctx,"should-never-load"); !errors.Is(e,externalmode.ErrDisabled){t.Fatal(e)}
++ if _,e:=s.GetVLMModel(ctx,"should-never-load"); !errors.Is(e,externalmode.ErrDisabled){t.Fatal(e)}
++ if _,e:=s.GetASRModel(ctx,"should-never-load"); !errors.Is(e,externalmode.ErrDisabled){t.Fatal(e)}
++ e,err:=s.GetEmbeddingModel(ctx,"");if err!=nil{t.Fatal(err)}
++ if e.GetDimensions()!=0{t.Fatal("fake vector dimensions")}
++ if _,err=e.Embed(ctx,"secret");!errors.Is(err,externalmode.ErrDisabled){t.Fatal(err)}
++}
+--- /dev/null
++++ b/internal/application/service/retriever/external_executor_test.go
+@@ -0,0 +1,14 @@
++package retriever
++import (
++ "context"
++ "testing"
++ "github.com/Tencent/WeKnora/internal/models/embedding"
++ "github.com/Tencent/WeKnora/internal/types"
++)
++func TestExternalExecutorIndexesWithoutEmbedding(t *testing.T) {
++ t.Setenv("WEKNORA_EXTERNAL_EXECUTOR", "workbuddy")
++ service:= &KeywordsVectorHybridRetrieveEngineService{indexRepository:&saveOnlyRepository{}}
++ // KeywordOnly returns an error if any embedding path is attempted.
++ err:=service.BatchIndex(context.Background(), &embedding.KeywordOnly{}, []*types.IndexInfo{{Content:"青竹项目",SourceID:"s",ChunkID:"c"}}, []types.RetrieverType{types.VectorRetrieverType,types.KeywordsRetrieverType})
++ if err!=nil {t.Fatal(err)}
++}
+--- a/internal/handler/knowledge.go
++++ b/internal/handler/knowledge.go
+@@ -1176,6 +1176,29 @@
+ 		secutils.SanitizeForLog(kbID),
+ 		result.Total,
+ 	)
++	// The private adapter uses metadata-only inventory for quotas and immutable refs.
++	// Preserve all existing tenant/RBAC filtering; never accept a caller tenant id.
++	if c.Query("zhixu_compact") == "1" {
++		compact := make([]gin.H, 0)
++		if rows, ok := result.Data.([]*types.Knowledge); ok {
++			for _, row := range rows {
++				size := int64(0)
++				if meta, err := row.ManualMetadata(); err == nil && meta != nil {
++					var envelope struct {
++						Body string `json:"body"`
++					}
++					if json.Unmarshal([]byte(meta.Content), &envelope) == nil {
++						size = int64(len(envelope.Body))
++					} else {
++						size = int64(len(meta.Content))
++					}
++				}
++				compact = append(compact, gin.H{"id": row.ID, "title": row.Title, "parse_status": row.ParseStatus, "payload_bytes": size})
++			}
++		}
++		c.JSON(http.StatusOK, gin.H{"success": true, "data": compact, "total": result.Total, "page": result.Page, "page_size": result.PageSize})
++		return
++	}
+ 	c.JSON(http.StatusOK, gin.H{
+ 		"success":   true,
+ 		"data":      result.Data,
+--- /dev/null
++++ b/internal/externalmode/mode_test.go
+@@ -0,0 +1,15 @@
++package externalmode
++
++import "testing"
++
++func TestEnvelopeIndexHasRealWhitespace(t *testing.T) {
++	t.Setenv("WEKNORA_EXTERNAL_EXECUTOR", "workbuddy")
++	source := `{"body":"line one\nQingzhu Project\nA\tB"}`
++	if got := SearchText(source); got != "line one\nQingzhu Project\nA\tB" {
++		t.Fatalf("unexpected index text: %q", got)
++	}
++	t.Setenv("WEKNORA_EXTERNAL_EXECUTOR", "")
++	if SearchText(source) != source {
++		t.Fatal("normal mode must not decode")
++	}
++}

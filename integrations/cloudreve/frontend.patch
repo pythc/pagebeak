@@ -1,0 +1,1001 @@
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+   "name": "cloudreve-frontend",
+   "private": true,
+-  "version": "4.0.0-next",
++  "version": "4.19.1",
+   "type": "module",
+   "scripts": {
+     "dev": "vite",
+@@ -115,5 +115,6 @@
+     "*.{js,jsx,ts,tsx,json,css,scss,md}": [
+       "prettier --write"
+     ]
+-  }
++  },
++  "packageManager": "yarn@1.22.22"
+ }
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -6,6 +6,7 @@
+ import { VitePWA } from "vite-plugin-pwa";
+ import { viteStaticCopy } from "vite-plugin-static-copy";
+ 
++const revision = process.env.AKB_FRONTEND_REVISION ?? "zhixu-nav-tree-v1";
+ const backend = "http://localhost:5212";
+ const backendProxyOption = { target: backend, headers: { host: new URL(backend).host } };
+ 
+@@ -20,7 +21,12 @@
+       workbox: {
+         globIgnores: ["**/*leaflet*", "**/*mapbox*", "**/*Leaflet*", "**/*Mapbox*"],
+         maximumFileSizeToCacheInBytes: 10000000,
+-        navigateFallbackDenylist: [/^\/pdfviewer.html/, /^\/api\/(.+)/, /^\/f\/(.+)/, /^\/s\/(.+)/],
++        navigateFallbackDenylist: [
++          /^\/pdfviewer.html/, /^\/api\/(.+)/, /^\/f\/(.+)/, /^\/s\/(.+)/,
++          /^\/(?:zhixu-guide|teacher-assistant-guide)\.html(?:[?#]|$)/,
++          /^\/(?:authorize|token|register|revoke|mcp|oauth)(?:[/?]|$)/,
++          /^\/\.well-known(?:[/?]|$)/, /^\/v[12](?:[/?]|$)/,
++        ],
+       },
+       devOptions: {
+         enabled: true,
+@@ -48,6 +53,7 @@
+       async writeBundle(outputOptions) {
+         const version = {
+           name: process.env.npm_package_name,
++          revision,
+           version: process.env.npm_package_version,
+         };
+         const path = resolve(__dirname, outputOptions.dir, "version.json");
+@@ -59,7 +65,7 @@
+     // }),
+   ],
+   define: {
+-    __ASSETS_VERSION__: JSON.stringify(process.env.npm_package_version),
++    __ASSETS_VERSION__: JSON.stringify(`${process.env.npm_package_version}-${revision}`),
+   },
+   build: {
+     outDir: "build", // keep same as v3 with minimal changes
+--- a/src/component/Frame/NavBar/PageNavigation.tsx
++++ b/src/component/Frame/NavBar/PageNavigation.tsx
+@@ -28,8 +28,6 @@
+ import PeopleFilled from "../../Icons/PeopleFilled.tsx";
+ import Person from "../../Icons/Person.tsx";
+ import PersonOutlined from "../../Icons/PersonOutlined.tsx";
+-import PhoneLaptop from "../../Icons/PhoneLaptop.tsx";
+-import PhoneLaptopOutlined from "../../Icons/PhoneLaptopOutlined.tsx";
+ import SendLogging from "../../Icons/SendLogging.tsx";
+ import SendLoggingFilled from "../../Icons/SendLoggingFilled.tsx";
+ import Server from "../../Icons/Server.tsx";
+@@ -56,27 +54,6 @@
+   path: string;
+   pro?: boolean;
+ }
+-
+-let NavigationItems: NavigationItem[];
+-NavigationItems = [
+-  {
+-    label: "navbar.myShare",
+-    icon: [ShareAndroid, ShareOutlined],
+-    path: "/shares",
+-  },
+-];
+-
+-const ConnectNavigationItem: NavigationItem = {
+-  label: "navbar.connect",
+-  icon: [PhoneLaptop, PhoneLaptopOutlined],
+-  path: "/connect",
+-};
+-
+-const TaskNavigationItem: NavigationItem = {
+-  label: "navbar.taskQueue",
+-  icon: [CubeSyncFilled, CubeSync],
+-  path: "/tasks",
+-};
+ 
+ const RemoteDownloadNavigationItem: NavigationItem = {
+   label: "navbar.remoteDownload",
+@@ -254,7 +231,6 @@
+ 
+ const PageNavigation = () => {
+   const shopNavEnabled = useAppSelector((state) => state.siteConfig.basic.config.shop_nav_enabled);
+-  const appPromotionEnabled = useAppSelector((state) => state.siteConfig.basic.config.app_promotion);
+   const user = SessionManager.currentLoginOrNull();
+   const isAdmin = useMemo(() => {
+     return GroupBS(user?.user).enabled(GroupPermission.is_admin);
+@@ -262,9 +238,6 @@
+   const remoteDownloadEnabled = useMemo(() => {
+     return GroupBS(user?.user).enabled(GroupPermission.remote_download);
+   }, [user?.user?.group?.permission]);
+-  const connectEnabled = useMemo(() => {
+-    return GroupBS(user?.user).enabled(GroupPermission.webdav) || appPromotionEnabled;
+-  }, [user?.user?.group?.permission, appPromotionEnabled]);
+   const isLogin = !!user;
+   const customNavItems = useAppSelector((state) => state.siteConfig.basic.config.custom_nav_items);
+ 
+@@ -273,11 +246,6 @@
+       {isLogin && (
+         <Box>
+           <>
+-            {NavigationItems.map((item) => (
+-              <SideNavItemComponent key={item.label} item={item} />
+-            ))}
+-            {connectEnabled && <SideNavItemComponent item={ConnectNavigationItem} />}
+-            <SideNavItemComponent item={TaskNavigationItem} />
+             {remoteDownloadEnabled && <SideNavItemComponent item={RemoteDownloadNavigationItem} />}
+           </>
+         </Box>
+--- a/src/component/Frame/NavBar/DrawerHeader.tsx
++++ b/src/component/Frame/NavBar/DrawerHeader.tsx
+@@ -4,7 +4,6 @@
+ import { useNavigate } from "react-router-dom";
+ import { setDrawerOpen } from "../../../redux/globalStateSlice.ts";
+ import { useAppDispatch } from "../../../redux/hooks.ts";
+-import Logo from "../../Common/Logo.tsx";
+ 
+ export const DrawerHeaderContainer = styled("div")(({ theme }) => ({
+   display: "flex",
+@@ -29,7 +28,10 @@
+       onMouseLeave={() => setShowCollapse(false)}
+     >
+       <Box sx={{ width: "100%", pl: 2, cursor: "pointer" }} onClick={() => navigate("/home")}>
+-        <Logo
++        <Box
++          component="img"
++          src={theme.palette.mode === "dark" ? "/static/img/zhixu-brand-dark-v1.svg" : "/static/img/zhixu-brand-v1.svg"}
++          alt="知序 · 个人知识库"
+           sx={{
+             height: "auto",
+             maxWidth: 160,
+--- a/src/component/Frame/NavBar/TopAppBar.tsx
++++ b/src/component/Frame/NavBar/TopAppBar.tsx
+@@ -1,18 +1,14 @@
+ import { AppBarProps as MuiAppBarProps } from "@mui/material/AppBar";
+-import { AppBar, Box, Collapse, IconButton, Stack, Toolbar, Tooltip, useMediaQuery, useTheme } from "@mui/material";
++import { AppBar, Box, Collapse, IconButton, Stack, Toolbar, useMediaQuery, useTheme } from "@mui/material";
+ import { Menu } from "@mui/icons-material";
+ import { useAppDispatch, useAppSelector } from "../../../redux/hooks.ts";
+ import { setDrawerOpen, setMobileDrawerOpen } from "../../../redux/globalStateSlice.ts";
+ import NewButton from "../../FileManager/NewButton.tsx";
+ import UserAction from "./UserAction.tsx";
+-import Setting from "../../Icons/Setting.tsx";
+ import DarkThemeSwitcher from "./DarkThemeSwitcher.tsx";
+ import NavBarMainActions from "./NavBarMainActions.tsx";
+ import MusicPlayer from "../../Viewers/MusicPlayer/MusicPlayer.tsx";
+ import { TaskListIconButton } from "../../Uploader/TaskListIconButton.tsx";
+-import { useNavigate } from "react-router-dom";
+-import { useTranslation } from "react-i18next";
+-import SessionManager from "../../../session";
+ import { useContext, useState } from "react";
+ import { DrawerPopover } from "./AppDrawer.tsx";
+ import { PageVariant, PageVariantContext } from "../NavBarFrame.tsx";
+@@ -27,8 +23,6 @@
+   const pageVariant = useContext(PageVariantContext);
+   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+   const isMainPage = pageVariant == PageVariant.default;
+-  const { t } = useTranslation();
+-  const navigate = useNavigate();
+   const open = useAppSelector((state) => state.globalState.drawerOpen);
+   const mobileDrawerOpen = useAppSelector((state) => state.globalState.mobileDrawerOpen);
+   const drawerWidth = useAppSelector((state) => state.globalState.drawerWidth);
+@@ -36,7 +30,6 @@
+   const [mobileMenuAnchor, setMobileMenuAnchor] = useState<null | HTMLElement>(null);
+ 
+   const appBarBg = theme.palette.mode === "light" ? theme.palette.grey[100] : theme.palette.grey[900];
+-  const isLogin = !!SessionManager.currentLoginOrNull();
+ 
+   const onMobileMenuClicked = (e: React.MouseEvent<HTMLElement>) => {
+     setMobileMenuAnchor(e.currentTarget);
+@@ -124,13 +117,6 @@
+           {!isMobile ? (
+             <>
+               <DarkThemeSwitcher />
+-              {isLogin && (
+-                <Tooltip title={t("navbar.setting")}>
+-                  <IconButton size="large" onClick={() => navigate("/settings")}>
+-                    <Setting />
+-                  </IconButton>
+-                </Tooltip>
+-              )}
+               <UserAction />
+             </>
+           ) : (
+--- a/src/component/FileManager/TreeView/TreeNavigation.tsx
++++ b/src/component/FileManager/TreeView/TreeNavigation.tsx
+@@ -1,11 +1,13 @@
+-import { Box, Collapse, Fade } from "@mui/material";
++import { Box, Collapse, Fade, Typography } from "@mui/material";
+ 
+ import { ChevronRight, ExpandMore } from "@mui/icons-material";
+ import { TreeView } from "@mui/x-tree-view";
+ import React, { useEffect } from "react";
++import { useTranslation } from "react-i18next";
++import { loadChild } from "../../../redux/thunks/filemanager.ts";
+ import { TransitionGroup } from "react-transition-group";
+-import { defaultPath, defaultSharedWithMePath, defaultTrashPath } from "../../../hooks/useNavigation.tsx";
+-import { useAppSelector } from "../../../redux/hooks.ts";
++import { defaultPath, defaultTrashPath } from "../../../hooks/useNavigation.tsx";
++import { useAppDispatch, useAppSelector } from "../../../redux/hooks.ts";
+ import SessionManager, { UserSettings } from "../../../session";
+ import CrUri, { Filesystem } from "../../../util/uri.ts";
+ import { FileManagerIndex } from "../FileManager.tsx";
+@@ -21,127 +23,129 @@
+   disableTrash?: boolean;
+ }
+ 
+-const TreeNavigation = React.memo(
+-  ({ index = 0, scrollRef, hideWithDrawer, disableSharedWithMe, disableTrash }: TreeNavigationProps) => {
+-    const base = useAppSelector((s) => s.fileManager[index].path_root);
+-    const path = useAppSelector((s) => s.fileManager[index].pure_path_with_category);
+-    const currentFs = useAppSelector((s) => s.fileManager[index].current_fs);
+-    const elements = useAppSelector((s) => s.fileManager[index].path_elements);
+-    const drawerOpen = useAppSelector((s) => s.globalState.drawerOpen);
+-    const [expanded, setExpanded] = React.useState<string[]>([]);
++const TreeNavigation = React.memo(({ index = 0, scrollRef, hideWithDrawer, disableTrash }: TreeNavigationProps) => {
++  const dispatch = useAppDispatch();
++  const { t } = useTranslation();
++  const base = useAppSelector((s) => s.fileManager[index].path_root);
++  const path = useAppSelector((s) => s.fileManager[index].pure_path_with_category);
++  const currentFs = useAppSelector((s) => s.fileManager[index].current_fs);
++  const elements = useAppSelector((s) => s.fileManager[index].path_elements);
++  const drawerOpen = useAppSelector((s) => s.globalState.drawerOpen);
++  const [expanded, setExpanded] = React.useState<string[]>(index === FileManagerIndex.main ? [defaultPath] : []);
+ 
+-    useEffect(() => {
+-      const res: string[] = [];
+-      if (path) {
+-        const p = new CrUri(path);
+-        if (p.is_search()) {
+-          return;
+-        }
++  useEffect(() => {
++    const res: string[] = [];
++    if (path) {
++      const p = new CrUri(path);
++      if (p.is_search()) {
++        return;
+       }
+-      if (base && elements) {
+-        const b = new CrUri(base);
+-        res.push(base);
+-        elements.forEach((element) => {
+-          b.join(element);
+-          res.push(b.toString());
+-        });
+-      }
+-      if (SessionManager.getWithFallback(UserSettings.TreeViewAutoExpand)) {
+-        setExpanded((e) => [...new Set([...e, ...res])]);
+-      }
+-    }, [path, base, elements]);
++    }
++    if (base && elements) {
++      const b = new CrUri(base);
++      res.push(base);
++      elements.forEach((element) => {
++        b.join(element);
++        res.push(b.toString());
++      });
++    }
++    if (SessionManager.getWithFallback(UserSettings.TreeViewAutoExpand)) {
++      setExpanded((e) => [...new Set([...e, ...res])]);
++      res.forEach((uri) => dispatch(loadChild(index, uri)));
++    }
++  }, [path, base, elements, dispatch, index]);
+ 
+-    const pinned = usePinned();
+-    const alreadyPinned = base && pinned && pinned.find((p) => p.uri == base);
+-    const showShareTree = base && currentFs && currentFs == Filesystem.share && !alreadyPinned;
++  const pinned = usePinned();
++  const alreadyPinned = base && pinned && pinned.find((p) => p.uri == base);
++  const showShareTree = base && currentFs && currentFs == Filesystem.share && !alreadyPinned;
+ 
+-    useEffect(() => {
+-      if (showShareTree && scrollRef && scrollRef.current) {
+-        scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+-      }
+-    }, [showShareTree]);
++  useEffect(() => {
++    if (showShareTree && scrollRef && scrollRef.current) {
++      scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
++    }
++  }, [showShareTree]);
+ 
+-    const isLogin = !!SessionManager.currentLoginOrNull();
++  const userId = SessionManager.currentLoginOrNull()?.user.id;
++  const isLogin = !!userId;
++  useEffect(() => {
++    if (isLogin && index === FileManagerIndex.main) dispatch(loadChild(index, defaultPath));
++  }, [dispatch, index, userId]);
+ 
+-    return (
+-      <FmIndexContext.Provider value={index}>
+-        <Box sx={{ width: "100%" }}>
+-          <Fade in={drawerOpen || !hideWithDrawer} unmountOnExit>
+-            <TreeView
+-              selected={path ?? ""}
+-              defaultCollapseIcon={<ExpandMore />}
+-              defaultExpandIcon={<ChevronRight />}
+-              expanded={expanded}
+-              onNodeToggle={(_event, nodeIds: string[]) => {
+-                setExpanded(nodeIds);
+-              }}
+-            >
+-              <TransitionGroup>
+-                {showShareTree && (
+-                  <Collapse key={"share"}>
+-                    <TreeFiles level={0} path={base} elements={elements} />
+-                  </Collapse>
+-                )}
+-                {isLogin && (
+-                  <>
++  return (
++    <FmIndexContext.Provider value={index}>
++      <Box sx={{ width: "100%" }}>
++        {isLogin && index === FileManagerIndex.main && (drawerOpen || !hideWithDrawer) && (
++          <Typography variant="overline" color="text.secondary" sx={{ px: 1.5, display: "block" }}>
++            {t("navbar.directoryTree")}
++          </Typography>
++        )}
++        <Fade in={drawerOpen || !hideWithDrawer} unmountOnExit>
++          <TreeView
++            aria-label={t("navbar.directoryTree")}
++            selected={path ?? ""}
++            defaultCollapseIcon={<ExpandMore />}
++            defaultExpandIcon={<ChevronRight />}
++            expanded={expanded}
++            onNodeToggle={(_event, nodeIds: string[]) => {
++              nodeIds
++                .filter((id) => !expanded.includes(id))
++                .forEach((id) => {
++                  const uri = id.startsWith("Pined") ? id.slice(5) : id;
++                  dispatch(loadChild(index, uri));
++                });
++              setExpanded(nodeIds);
++            }}
++          >
++            <TransitionGroup>
++              {showShareTree && (
++                <Collapse key={"share"}>
++                  <TreeFiles level={0} path={base} elements={elements} />
++                </Collapse>
++              )}
++              {isLogin && (
++                <>
++                  <TreeFiles
++                    canDrop
++                    level={0}
++                    path={defaultPath}
++                    key={defaultPath}
++                    elements={currentFs == Filesystem.my ? elements : undefined}
++                  />
++                  {index == FileManagerIndex.main && (
++                    <>
++                      <TreeFiles
++                        flatten
++                        level={0}
++                        path={"cloudreve://my/?category=image"}
++                        key={"cloudreve://my/?category=image"}
++                      />
++                      <TreeFiles
++                        flatten
++                        level={0}
++                        path={"cloudreve://my/?category=document"}
++                        key={"cloudreve://my/?category=document"}
++                      />
++                    </>
++                  )}
++                  {!disableTrash && (
+                     <TreeFiles
++                      level={0}
++                      flatten
+                       canDrop
+-                      level={0}
+-                      path={defaultPath}
+-                      key={defaultPath}
+-                      elements={currentFs == Filesystem.my ? elements : undefined}
++                      key={defaultTrashPath}
++                      path={defaultTrashPath}
++                      elements={currentFs == Filesystem.trash ? elements : undefined}
+                     />
+-                    {index == FileManagerIndex.main && (
+-                      <>
+-                        <TreeFiles
+-                          flatten
+-                          level={0}
+-                          path={"cloudreve://my/?category=image"}
+-                          key={"cloudreve://my/?category=image"}
+-                        />
+-                        <TreeFiles
+-                          flatten
+-                          level={0}
+-                          path={"cloudreve://my/?category=video"}
+-                          key={"cloudreve://my/?category=video"}
+-                        />
+-                        <TreeFiles
+-                          flatten
+-                          level={0}
+-                          path={"cloudreve://my/?category=audio"}
+-                          key={"cloudreve://my/?category=audio"}
+-                        />
+-                        <TreeFiles
+-                          flatten
+-                          level={0}
+-                          path={"cloudreve://my/?category=document"}
+-                          key={"cloudreve://my/?category=document"}
+-                        />
+-                      </>
+-                    )}
+-                    {!disableSharedWithMe && (
+-                      <TreeFiles level={0} path={defaultSharedWithMePath} key={defaultSharedWithMePath} />
+-                    )}
+-                    {!disableTrash && (
+-                      <TreeFiles
+-                        level={0}
+-                        flatten
+-                        canDrop
+-                        key={defaultTrashPath}
+-                        path={defaultTrashPath}
+-                        elements={currentFs == Filesystem.trash ? elements : undefined}
+-                      />
+-                    )}
+-                    <Pinned />
+-                  </>
+-                )}
+-              </TransitionGroup>
+-            </TreeView>
+-          </Fade>
+-        </Box>
+-      </FmIndexContext.Provider>
+-    );
+-  },
+-);
++                  )}
++                  <Pinned />
++                </>
++              )}
++            </TransitionGroup>
++          </TreeView>
++        </Fade>
++      </Box>
++    </FmIndexContext.Provider>
++  );
++});
+ 
+ export default TreeNavigation;
+--- a/src/component/FileManager/TreeView/TreeFiles.tsx
++++ b/src/component/FileManager/TreeView/TreeFiles.tsx
+@@ -94,7 +94,7 @@
+       }, [p, elements, parentsCache, limit]);
+ 
+       const shadowChild = useMemo(() => {
+-        if (flatten || (parentsCache?.children && parentsCache.children.length == 0)) {
++        if (flatten || (parentsCache?.childrenLoaded && parentsCache.children?.length == 0)) {
+           return null;
+         }
+         return <Box />;
+--- a/src/redux/fileManagerSlice.ts
++++ b/src/redux/fileManagerSlice.ts
+@@ -81,6 +81,7 @@
+ };
+ 
+ export interface FmTreeItem {
++  childrenLoaded?: boolean;
+   file?: FileResponse;
+   thumb?: ThumbCache;
+   children?: string[];
+@@ -202,6 +203,17 @@
+           ...action.payload.value[0].filter((t) => t.type == FileType.folder).map((file) => file.path),
+         ]),
+       ];
++    },
++    setTreeChildren: (state, action: PayloadAction<FileManagerArgsBase<{ path: string; folders: FileResponse[] }>>) => {
++      const fm = state[action.payload.index];
++      const { path, folders } = action.payload.value;
++      fm.tree[path] ??= {};
++      fm.tree[path].children = folders.map((folder) => folder.path);
++      fm.tree[path].childrenLoaded = true;
++      folders.forEach((folder) => {
++        fm.tree[folder.path] ??= {};
++        fm.tree[folder.path].file = folder;
++      });
+     },
+     removeTreeCache: (state, action: PayloadAction<FileManagerArgsBase<string[]>>) => {
+       const path = action.payload.value;
+@@ -475,7 +487,10 @@
+ 
+           const treeCache = fm.tree[oldPath];
+           if (treeCache && treeCache.file) {
+-            if (pathChanged) treeCache.children = [];
++            if (pathChanged) {
++              treeCache.children = [];
++              treeCache.childrenLoaded = false;
++            }
+             treeCache.thumb = undefined;
+             treeCache.file = {
+               ...treeCache.file,
+@@ -529,6 +544,7 @@
+   clearSessionCache,
+   setPathProps,
+   appendTreeCache,
++  setTreeChildren,
+   appendListResponse,
+   applyListResponse,
+   setFmError,
+--- a/src/redux/thunks/filemanager.ts
++++ b/src/redux/thunks/filemanager.ts
+@@ -1,3 +1,4 @@
++import { collectFolderChildren } from "../../component/FileManager/TreeView/folderListing.ts";
+ import dayjs from "dayjs";
+ import { getFileInfo, getFileList, getUserCapacity, sendPatchViewSync } from "../../api/api.ts";
+ import { ExplorerView, FileResponse, FileType, ListResponse, Metadata } from "../../api/explorer.ts";
+@@ -18,6 +19,7 @@
+ import {
+   appendListResponse,
+   appendTreeCache,
++  setTreeChildren,
+   applyListResponse,
+   clearMultiSelectHovered,
+   clearSelected,
+@@ -322,29 +324,39 @@
+   };
+ }
+ 
++const pendingTreeLoads = new Map<string, Promise<void>>();
++
+ export function loadChild(index: number, path: string, beforeLoad?: () => void): AppThunk {
+   return async (dispatch, getState) => {
+-    let listRes: ListResponse | null = null;
+-    const { fileManager } = getState();
+-    const current = fileManager[index].tree[path];
+-    if (current && current.children) {
+-      return;
+-    }
++    if (getState().fileManager[index].tree[path]?.childrenLoaded) return;
++    const userId = SessionManager.currentLoginOrNull()?.user.id;
++    const key = JSON.stringify([userId, index, path]);
++    beforeLoad?.();
++    const pending = pendingTreeLoads.get(key);
++    if (pending) return pending;
++    const task = (async () => {
++      try {
++        const folders = await collectFolderChildren(
++          (pagination) =>
++            dispatch(
++              getFileList(
++                { uri: path, page_size: 100, order_by: "name", order_direction: "asc", ...pagination },
++                false,
++              ),
++            ),
++          () => SessionManager.currentLoginOrNull()?.user.id === userId,
++        );
++        if (folders && SessionManager.currentLoginOrNull()?.user.id === userId)
++          dispatch(setTreeChildren({ index, value: { path, folders } }));
++      } catch (_error) {
++        // The API displays its error. Leave this branch retryable on the next expansion.
++      }
++    })();
++    pendingTreeLoads.set(key, task);
+     try {
+-      if (beforeLoad) {
+-        beforeLoad();
+-      }
+-      listRes = await dispatch(
+-        getFileList({
+-          page_size: pageSize(fileManager[index]),
+-          uri: path,
+-          order_by: fileManager[index].sortBy,
+-          order_direction: fileManager[index].sortDirection,
+-        }),
+-      );
+-      dispatch(appendTreeCache({ index, value: [listRes.files, path] }));
+-    } catch (e) {
+-      console.log(e);
++      await task;
++    } finally {
++      pendingTreeLoads.delete(key);
+     }
+   };
+ }
+--- a/public/locales/zh-CN/application.json
++++ b/public/locales/zh-CN/application.json
+@@ -115,7 +115,7 @@
+     "myShare": "我的分享",
+     "remoteDownload": "离线下载",
+     "connect": "连接与挂载",
+-    "taskQueue": "后台任务",
++    "taskQueue": "任务进度",
+     "setting": "设置",
+     "videos": "视频",
+     "photos": "图片",
+@@ -144,7 +144,8 @@
+     "toDarkMode": "黑暗",
+     "toLightMode": "浅色",
+     "myProfile": "个人主页",
+-    "dashboard": "管理面板"
++    "dashboard": "管理面板",
++    "directoryTree": "目录树"
+   },
+   "fileManager": {
+     "continueInDesktop": "授权成功，请在桌面客户端中继续操作。",
+--- a/public/locales/zh-TW/application.json
++++ b/public/locales/zh-TW/application.json
+@@ -118,7 +118,7 @@
+     "myShare": "我的分享",
+     "remoteDownload": "離線下載",
+     "connect": "連線與掛載",
+-    "taskQueue": "後臺任務",
++    "taskQueue": "任務進度",
+     "setting": "設定",
+     "videos": "視訊",
+     "photos": "圖片",
+@@ -147,7 +147,8 @@
+     "toDarkMode": "黑暗",
+     "toLightMode": "淺色",
+     "myProfile": "個人主頁",
+-    "dashboard": "管理面板"
++    "dashboard": "管理面板",
++    "directoryTree": "目錄樹"
+   },
+   "fileManager": {
+     "continueInDesktop": "授權成功，請在桌面客戶端中繼續操作。",
+--- a/public/locales/en-US/application.json
++++ b/public/locales/en-US/application.json
+@@ -144,7 +144,8 @@
+     "toDarkMode": "Dark",
+     "toLightMode": "Light",
+     "myProfile": "My profile",
+-    "dashboard": "Dashboard"
++    "dashboard": "Dashboard",
++    "directoryTree": "Folder tree"
+   },
+   "fileManager": {
+     "continueInDesktop": "Authorization successful, please continue in the desktop client.",
+--- a/src/component/Frame/NavBar/AppDrawer.tsx
++++ b/src/component/Frame/NavBar/AppDrawer.tsx
+@@ -3,6 +3,7 @@
+ import { useAppDispatch, useAppSelector } from "../../../redux/hooks.ts";
+ import SessionManager from "../../../session";
+ import TreeNavigation from "../../FileManager/TreeView/TreeNavigation.tsx";
++import StartEntry from "../../Knowledge/StartEntry.tsx";
+ import { PageVariant, PageVariantContext } from "../NavBarFrame.tsx";
+ import DrawerHeader from "./DrawerHeader.tsx";
+ import PageNavigation, { AdminPageNavigation } from "./PageNavigation.tsx";
+@@ -27,15 +28,16 @@
+           px: 1,
+           pb: 1,
+           flexGrow: 1,
++          minHeight: 0,
+           mx: 1,
+           overflow: "auto",
+         }}
+       >
+         {!isDashboard && (
+           <>
++            <StartEntry />
+             <TreeNavigation scrollRef={scrollRef} hideWithDrawer={!isMobile} />
+             <PageNavigation />
+-            {user && <StorageSummary />}
+           </>
+         )}
+         {isDashboard && <AdminPageNavigation />}
+@@ -45,6 +47,11 @@
+           </Box>
+         )}
+       </Stack>
++      {!isDashboard && user && (
++        <Box sx={{ flexShrink: 0, pt: 1, pb: 1, "& > *": { mx: 2 } }}>
++          <StorageSummary />
++        </Box>
++      )}
+     </>
+   );
+ };
+@@ -55,7 +62,9 @@
+   const drawerWidth = useAppSelector((state) => state.globalState.drawerWidth);
+   return (
+     <Popover {...props}>
+-      <Box sx={{ width: "70vw" }}>
++      <Box
++        sx={{ width: "70vw", height: "calc(100dvh - 32px)", display: "flex", flexDirection: "column", overflow: "hidden" }}
++      >
+         <DrawerContent />
+       </Box>
+     </Popover>
+--- a/src/component/FileManager/NewButton.tsx
++++ b/src/component/FileManager/NewButton.tsx
+@@ -1,13 +1,15 @@
+ import Add from "../Icons/Add.tsx";
+ import Delete from "../Icons/Delete.tsx";
+ import DeleteOutlined from "../Icons/DeleteOutlined.tsx";
+-import { Button, IconButton, useMediaQuery, useTheme } from "@mui/material";
++import { Button, IconButton, Stack, useMediaQuery, useTheme } from "@mui/material";
+ import { useTranslation } from "react-i18next";
+ import { useAppDispatch, useAppSelector } from "../../redux/hooks.ts";
+-import { openNewContextMenu } from "../../redux/thunks/filemanager.ts";
++import { openNewContextMenu, uploadClicked } from "../../redux/thunks/filemanager.ts";
+ import { emptyTrash } from "../../redux/thunks/file.ts";
+ import { FileManagerIndex } from "./FileManager.tsx";
+ import { Filesystem } from "../../util/uri.ts";
++
++import { SelectType } from "../Uploader/core";
+ 
+ const NewButton = () => {
+   const { t } = useTranslation();
+@@ -40,9 +42,7 @@
+ 
+   if (isMobile) {
+     return (
+-      <IconButton onClick={(e) => dispatch(openNewContextMenu(FileManagerIndex.main, e))}>
+-        <Add />
+-      </IconButton>
++      <Stack direction="row" spacing={0.5}><Button onClick={() => dispatch(uploadClicked(FileManagerIndex.main, SelectType.File))}>上传</Button><IconButton aria-label="新建" onClick={(e) => dispatch(openNewContextMenu(FileManagerIndex.main, e))}><Add /></IconButton></Stack>
+     );
+   }
+ 
+--- a/src/component/Frame/NavBar/FileSelectedActions.tsx
++++ b/src/component/Frame/NavBar/FileSelectedActions.tsx
+@@ -1,4 +1,4 @@
+-import { Badge, Box, IconButton, Stack, styled, Tooltip, useMediaQuery, useTheme } from "@mui/material";
++import { Badge, Box, Button, IconButton, Stack, styled, Tooltip, useMediaQuery, useTheme } from "@mui/material";
+ import React, { forwardRef } from "react";
+ import { useTranslation } from "react-i18next";
+ import { FileResponse } from "../../../api/explorer.ts";
+@@ -70,7 +70,8 @@
+             <Dismiss />
+           </Badge>
+         </IconButton>
+-        <IconButton onClick={(e) => dispatch(openFileContextMenu(FileManagerIndex.main, targets[0], false, e))}>
++        {displayOpt.showDelete && <Button color="error" onClick={() => dispatch(deleteFile(FileManagerIndex.main, targets))}>删除</Button>}
++        <IconButton aria-label="文件操作" onClick={(e) => dispatch(openFileContextMenu(FileManagerIndex.main, targets[0], false, e))}>
+           <Badge badgeContent={targets.length} color={"primary"}>
+             <MoreHorizontal />
+           </Badge>
+--- a/src/component/Uploader/core/index.ts
++++ b/src/component/Uploader/core/index.ts
+@@ -24,6 +24,7 @@
+   listResumeCtx,
+ } from "./utils";
+ import { Pool } from "./utils/pool";
++import { bindFileDropZone } from "./fileDropZone.ts";
+ 
+ export interface Option {
+   logLevel: LogLevel;
+@@ -56,6 +57,8 @@
+   private currentPath?: string;
+   private options: Option;
+ 
++  private detachDropZone?: () => void;
++
+   constructor(private o: Option) {
+     this.logger = new Logger(o.logLevel, "MANAGER");
+     this.logger.info(`Initialized with log level: ${o.logLevel}`);
+@@ -68,20 +71,15 @@
+ 
+     if (o.dropZone) {
+       this.logger.info(`Drag and drop container set to:`, o.dropZone);
+-      o.dropZone.addEventListener("dragenter", this.dragEnter);
+-      o.dropZone.addEventListener("dragleave", this.dragLeave);
+-      o.dropZone.addEventListener("drop", this.onFileDroppedIn);
++      this.detachDropZone = bindFileDropZone(o.dropZone, { enter: this.dragEnter, leave: this.dragLeave, drop: this.onFileDroppedIn }, () => !!this.currentPath && !!this.policy);
+     }
+ 
+     window.addEventListener("beforeunload", this.beforeLeave);
+   }
+ 
+   destroy() {
+-    if (this.options.dropZone) {
+-      this.options.dropZone.removeEventListener("dragenter", this.dragEnter);
+-      this.options.dropZone.removeEventListener("dragleave", this.dragLeave);
+-      this.options.dropZone.removeEventListener("drop", this.onFileDroppedIn);
+-    }
++    this.detachDropZone?.();
++    window.removeEventListener("beforeunload", this.beforeLeave);
+   }
+ 
+   beforeLeave = (e: BeforeUnloadEvent) => {
+@@ -277,6 +275,7 @@
+     }
+     const containFile = e.dataTransfer && e.dataTransfer.types.includes("Files");
+     if (containFile) {
++      e.preventDefault();
+       const shouldAccept = this.o.onDropLeave && this.o.onDropLeave(e);
+       if (!shouldAccept) {
+         return;
+--- a/src/component/Uploader/Uploader.tsx
++++ b/src/component/Uploader/Uploader.tsx
+@@ -96,18 +96,19 @@
+           return;
+         }
+         dragCounter++;
+-        setDropBgOpen((value) => !value);
+-      },
+-      onDropLeave: (_e) => {
++        setDropBgOpen(dragCounter > 0);
++      },
++      onDropLeave: (e) => {
+         if (!uploadEnabled.current) {
+           return false;
+         }
+-        dragCounter--;
+-        setDropBgOpen((value) => !value);
++        dragCounter = e.type === "drop" ? 0 : Math.max(0, dragCounter - 1);
++        setDropBgOpen(dragCounter > 0);
+         return true;
+       },
+       onProactiveFileAdded: taskAdded(),
+       onPoolEmpty: () => {
++        window.dispatchEvent(new Event("kb-file-changed"));
+         setTimeout(() => {
+           dispatch(refreshFileList(0));
+           dispatch(updateUserCapacity(0));
+--- a/src/api/request.ts
++++ b/src/api/request.ts
+@@ -6,6 +6,7 @@
+ import { openLockConflictDialog } from "../redux/thunks/dialog.ts";
+ import { router } from "../router";
+ import SessionManager from "../session";
++import { queueFileOperation } from "../component/Knowledge/outbox.ts";
+ import { ErrNames } from "../session/errors.ts";
+ import { sendRefreshToken } from "./api.ts";
+ 
+@@ -150,7 +151,7 @@
+   context_hint: CrHeaderPrefix + "Context-Hint",
+ };
+ 
+-function getAccessToken(): AppThunk<Promise<string | undefined>> {
++export function getAccessToken(): AppThunk<Promise<string | undefined>> {
+   return async (dispatch, _getState) => {
+     try {
+       const accessToken = await SessionManager.getAccessToken();
+@@ -209,6 +210,7 @@
+         }
+       }
+ 
++      const noticeUserId = SessionManager.currentLoginOrNull()?.user.id;
+       const resp = await instance.request<Response<T>>(axiosConf);
+ 
+       if (resp.data.code !== undefined && resp.data.code !== Code.Success) {
+@@ -225,6 +227,13 @@
+         }
+ 
+         throw new AppError(resp.data);
++      }
++      if (url.startsWith("/file") && !["GET", "HEAD"].includes((config?.method ?? "GET").toUpperCase()) && !["/file/url", "/file/viewer", "/file/thumb"].includes(url)) {
++        if (noticeUserId && SessionManager.currentLoginOrNull()?.user.id === noticeUserId) {
++          try { queueFileOperation(noticeUserId, url, (config?.method ?? "GET").toUpperCase(), config?.data); }
++          catch { enqueueSnackbar("文件操作已成功，但变更记录暂未写入；后台会继续对账", { variant: "warning" }); }
++        }
++        window.dispatchEvent(new Event("kb-file-changed"));
+       }
+       return resp.data.data;
+     } catch (e) {
+--- a/src/component/Frame/NavBarFrame.tsx
++++ b/src/component/Frame/NavBarFrame.tsx
+@@ -11,6 +11,7 @@
+ import { FileManagerIndex } from "../FileManager/FileManager.tsx";
+ import SearchPopup from "../FileManager/Search/SearchPopup.tsx";
+ import Uploader from "../Uploader/Uploader.tsx";
++import NativeWatcher from "../Knowledge/NativeWatcher.tsx";
+ import AppDrawer from "./NavBar/AppDrawer.tsx";
+ import Main from "./NavBar/AppMain.tsx";
+ import SplitHandle from "./NavBar/SplitHandle.tsx";
+@@ -60,6 +61,7 @@
+           {variant != PageVariant.dashboard && <ContextMenu fmIndex={FileManagerIndex.main} />}
+           <Dialogs />
+           <Uploader />
++          <NativeWatcher />
+           {variant != PageVariant.dashboard && <SearchPopup />}
+           <Main />
+         </DndProvider>
+--- a/src/router/index.tsx
++++ b/src/router/index.tsx
+@@ -11,6 +11,8 @@
+ import MobileCallback from "../component/Pages/Login/Signin/MobileCallback.tsx";
+ import SignIn from "../component/Pages/Login/Signin/SignIn.tsx";
+ import SignUp from "../component/Pages/Login/Signup.tsx";
++import StartPage from "../component/Knowledge/StartPage.tsx";
++import HelpPage from "../component/Knowledge/HelpPage.tsx";
+ import NoMatch from "../component/Pages/NoMatch.tsx";
+ 
+ export const router = createBrowserRouter([
+@@ -20,16 +22,21 @@
+     element: <App />,
+     children: [
+       { path: "/", element: <HomeRedirect /> },
++      { path: "/start", element: <StartPage /> },
++      { path: "/help", element: <HelpPage /> },
++      { path: "/settings/*", element: <Navigate to="/help" replace /> },
++      { path: "/session", element: <StartPage /> },
++      { path: "/session/signup", element: <Navigate to="/start" replace /> },
+       {
+         path: "/",
+         element: <HeadlessFrame />,
+         children: [
+           {
+-            path: "/session",
++            path: "/operator",
+             element: <SessionIntro />,
+             children: [
+               {
+-                path: "/session",
++                path: "/operator",
+                 element: <SignIn />,
+               },
+               {
+@@ -214,6 +221,13 @@
+             ],
+           },
+           {
++            path: "/knowledge",
++            async lazy() {
++              let { default: LibraryPage } = await import("../component/Knowledge/LibraryPage.tsx");
++              return { Component: LibraryPage };
++            },
++          },
++          {
+             path: "/home",
+             async lazy() {
+               let { FileManager } = await import("../component/Frame/FrameManagerBundle.tsx");
+@@ -222,10 +236,7 @@
+           },
+           {
+             path: "/tasks",
+-            async lazy() {
+-              let { TaskList } = await import("../component/Pages/Pages");
+-              return { Component: TaskList };
+-            },
++            element: <Navigate to="/home" replace />,
+           },
+           {
+             path: "/downloads",
+@@ -246,13 +257,6 @@
+             async lazy() {
+               let { Devices } = await import("../component/Pages/Pages");
+               return { Component: Devices };
+-            },
+-          },
+-          {
+-            path: "/settings",
+-            async lazy() {
+-              let { Setting } = await import("../component/Pages/Pages");
+-              return { Component: Setting };
+             },
+           },
+           {
+--- a/src/component/Common/Snackbar/snackbar.tsx
++++ b/src/component/Common/Snackbar/snackbar.tsx
+@@ -234,6 +234,9 @@
+       closeSnackbar(snackbarId);
+     }, [navigate, snackbarId]);
+ 
++    // The personal workspace has no task page; keep only Dismiss for archive jobs.
++    if (path === "/tasks") return Close;
++
+     return (
+       <>
+         <Button onClick={viewDst} color="inherit" size="small">
+--- a/src/redux/thunks/viewer.ts
++++ b/src/redux/thunks/viewer.ts
+@@ -34,6 +34,7 @@
+ } from "../globalStateSlice.ts";
+ import { Viewers, ViewersByID } from "../siteConfigSlice.ts";
+ import { AppThunk } from "../store.ts";
++import { usesLocalOfficePreview } from "../../component/Knowledge/office.ts";
+ import { askSaveAs, askStaleVersionAction } from "./dialog.ts";
+ import { longRunningTaskWithSnackbar, refreshSingleFileSymbolicLinks } from "./file.ts";
+ import { uploadRawFile } from "./filemanager.ts";
+@@ -71,6 +72,12 @@
+ 
+     const ext = fileExtension(file.name) ?? "";
+     const entitySize = size ?? file.size;
++
++    // Office originals stay local; preview the rendered PDF in the native dialog.
++    if (!ignorePreference && (usesLocalOfficePreview(file) || ext === "pdf")) {
++      dispatch(setPdfViewer({ open: true, file, version: preferredVersion }));
++      return;
++    }
+ 
+     // Try user preference
+     const userPreference = SessionManager.get(UserSettings.OpenWithPrefix + ext);

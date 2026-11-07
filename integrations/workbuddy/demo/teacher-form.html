@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>教师资料登记 · WorkBuddy 本地验收</title>
+<style>
+:root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: #243c33; background: #f4f5f0; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 40px 20px; }
+main { max-width: 860px; margin: auto; }
+.tag { font-size: 12px; letter-spacing: .12em; color: #66776c; }
+h1 { font-size: clamp(26px, 4vw, 36px); margin: 12px 0; font-weight: 600; }
+.intro { color: #65736b; line-height: 1.7; margin-bottom: 28px; }
+form { background: white; border: 1px solid #dde4dc; padding: 30px; border-radius: 20px; box-shadow: 0 12px 40px #243c3307; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+label { display: grid; gap: 8px; font-size: 14px; }
+input, textarea { width: 100%; padding: 12px; border: 1px solid #d6ddd6; border-radius: 8px; font: inherit; background: #fcfdfb; color: inherit; }
+input:focus, textarea:focus { outline: 2px solid #57866b; outline-offset: 2px; }
+.wide { grid-column: 1/-1; }
+small { color: #7c877f; font-size: 12px; line-height: 1.6; }
+.actions { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; }
+button { padding: 12px 20px; font: inherit; border-radius: 9px; border: 1px solid #254e3b; background: #254e3b; color: white; cursor: pointer; }
+button[type=reset] { color: #4e6256; background: white; border-color: #d9e0d8; }
+#result { white-space: pre-wrap; line-height: 1.8; border-top: 1px solid #e4e9e2; padding-top: 18px; margin-top: 24px; font-size: 14px; }
+footer { color: #7c877f; font-size: 12px; margin-top: 22px; }
+@media(max-width:600px) { .fields { grid-template-columns: 1fr; } form { padding: 22px; } body { padding: 24px 14px; } }
+</style>
+</head>
+<body>
+<main>
+<div class="tag">知序 / WORKBUDDY · LOCAL ACCEPTANCE</div>
+<h1>教师资料登记</h1>
+<p class="intro">请依据知识库中已采纳的事实填写。缺失项保留为空，不把收藏论文计为本人发表成果。<br>此页只用于合成数据验收，检查结果保留在当前页面。</p>
+<form id="teacher-form" autocomplete="off">
+<div class="fields">
+<label>姓名<input name="name" aria-label="姓名" maxlength="80"></label>
+<label>工作单位<input name="organization" aria-label="工作单位" maxlength="200"></label>
+<label>职称<input name="job_title" aria-label="职称" maxlength="80"></label>
+<label>邮箱<input name="email" aria-label="邮箱" type="email" maxlength="254"></label>
+<label class="wide">研究方向<textarea name="research_interests" aria-label="研究方向" rows="2" maxlength="500"></textarea></label>
+<label>手机号<input name="phone" aria-label="手机号" type="tel" maxlength="40"><small>未提供或未授权时保留为空</small></label>
+<label>本人论文数量<input name="publication_count" aria-label="本人论文数量" type="number" min="0"><small>未知保留为空；空白不代表 0 篇</small></label>
+</div>
+<div class="actions"><button type="submit">检查填写结果</button><button type="reset">清空</button></div>
+<p id="result" role="status" aria-live="polite" hidden></p>
+</form>
+<footer>仅本机验收 · 无外部服务、无网络提交、无浏览器持久化存储</footer>
+</main>
+<script>
+const form = document.getElementById('teacher-form');
+const result = document.getElementById('result');
+const labels = {name:'姓名', organization:'工作单位', job_title:'职称', email:'邮箱', research_interests:'研究方向', phone:'手机号', publication_count:'本人论文数量'};
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const fields = Array.from(new FormData(form)).map(([key, value]) => [key, String(value).trim()]);
+  const filled = fields.filter(([, value]) => value).length;
+  result.textContent = `本地检查完成：${filled} 项已填写，${fields.length - filled} 项保留为空。\n` + fields.map(([key,value]) => `${labels[key]}：${value || '未填写'}`).join('\n') + '\n未向第三方提交。';
+  result.hidden = false;
+});
+form.addEventListener('reset', () => { result.hidden = true; result.textContent = ''; });
+</script>
+</body>
+</html>

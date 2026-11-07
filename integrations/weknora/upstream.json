@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/Tencent/WeKnora",
+  "commit": "40192ace214ca046a86b590d69c1fe7286f3423e",
+  "archive_sha256": "36992738cc7a74ce79d4b9209fb7d0234a4a94de99f584a5709ca2325cd8d34c",
+  "version": "0.9.0-main-pinned",
+  "contract": "zhixu-weknora-v1",
+  "mode": "external_workbuddy_keyword_only",
+  "patch": "external-executor.patch"
+}

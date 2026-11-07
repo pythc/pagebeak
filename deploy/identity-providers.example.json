@@ -1,0 +1,15 @@
+[
+  {
+    "key": "organization",
+    "label": "已有账号",
+    "kind": "oidc",
+    "issuer": "https://identity.example.org",
+    "client_id": "replace-with-pagebeak-application-id",
+    "client_secret": "replace-in-private-server-configuration",
+    "authorization_endpoint": "https://identity.example.org/authorize",
+    "token_endpoint": "https://identity.example.org/token",
+    "jwks_uri": "https://identity.example.org/jwks",
+    "token_auth": "client_secret_basic",
+    "scopes": ["openid", "profile"]
+  }
+]

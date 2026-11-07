@@ -1,0 +1,52 @@
+[project]
+name = "agent-knowledge-base"
+version = "0.1.0"
+description = "Evidence-backed personal knowledge service and WorkBuddy MCP connector"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.34,<1",
+  "sqlalchemy>=2.0,<2.1",
+  "psycopg[binary]>=3.2,<4",
+  "alembic>=1.14,<2",
+  "pydantic-settings>=2.7,<3",
+  "python-multipart>=0.0.20",
+  "httpx>=0.28,<1",
+  "pypdf>=5,<7",
+  "python-docx>=1.1,<2",
+  "openpyxl>=3.1,<4",
+  "python-pptx>=1,<2",
+  "beautifulsoup4>=4.13,<5",
+  "mcp>=1.20,<2",
+  "rapidocr>=3.10,<4",
+  "onnxruntime>=1.20,<2",
+  "pypdfium2>=4.30,<6",
+  "pyjwt[crypto]>=2.10,<3",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "pytest-cov>=6,<8", "ruff>=0.11,<1", "reportlab>=4,<5"]
+
+[project.scripts]
+akb-api = "akb.api:run"
+akb-worker = "akb.worker:main"
+akb-mcp = "akb.mcp_server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend/akb"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501", "B008"]

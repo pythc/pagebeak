@@ -1,0 +1,73 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>新手教程 · 知序</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#233348;background:#f6f8fb;line-height:1.85;font-size:16px;scroll-behavior:smooth}*{box-sizing:border-box}body{margin:0}a{color:#325ed6;text-underline-offset:4px;overflow-wrap:anywhere}header{background:#fff;border-bottom:1px solid #e4e9f1;padding:16px max(22px,calc((100vw - 1160px)/2));display:flex;justify-content:space-between;gap:16px;align-items:center}header a{text-decoration:none}header img{width:32px;vertical-align:middle;margin-right:10px}header strong{color:#233348}header nav{display:flex;gap:22px}.layout{max-width:1160px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:36px;margin:34px auto;padding:0 22px}aside{align-self:start;position:sticky;top:22px;font-size:14px}aside a{display:block;color:#526176;text-decoration:none;padding:7px 0}aside a:hover{color:#325ed6}main{background:white;border:1px solid #e4e9f1;border-radius:18px;padding:38px 44px;min-width:0}.eyebrow{color:#5374b2;font-weight:600;font-size:14px}h1{line-height:1.3;font-size:36px;letter-spacing:-1px;margin:14px 0 24px}h2{font-size:23px;line-height:1.5;margin:0 0 18px}p{margin:14px 0}section{padding:30px 0 16px;border-top:1px solid #edf0f5;scroll-margin-top:24px}ul{padding-left:22px}li{padding:6px 0}.sample{background:#f1f5ff;border:1px solid #dce6ff;border-radius:12px;padding:18px 20px;margin:20px 0}blockquote{margin:0}button{border:1px solid #c4d4fb;background:white;color:#325ed6;border-radius:7px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer;margin-top:12px}button:focus-visible,a:focus-visible{outline:3px solid #a7bffa;outline-offset:4px}code{background:#eef1f5;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{text-align:center;color:#6d798a;font-size:13px;padding:0 22px 32px}.notice{font-size:13px;color:#69778d}#copy-status{min-height:24px;color:#456326}
+@media(max-width:760px){.layout{display:block;margin:18px auto;padding:0 14px}aside{position:static;margin:0 0 20px;padding:12px 18px;background:#edf2f9;border-radius:12px}aside a{display:inline-block;margin-right:16px;font-size:13px}main{padding:25px 20px}h1{font-size:29px}h2{font-size:21px}header{padding:14px 18px}header nav{gap:14px;font-size:14px}}
+@media print{aside,header,.copy,footer{display:none}.layout{display:block;margin:0;padding:0}main{border:0;padding:0}section{break-inside:avoid}a{color:inherit}body{background:white}}
+</style></head><body><header><a href="/start"><img src="/static/img/zhixu-mark-v1.svg" alt=""><strong>知序</strong></a><nav><a href="/start">开始使用</a><a href="/home">我的文件</a><a href="/knowledge">知识目录</a></nav></header><div class="layout"><aside aria-label="教程目录"><a href="#step1">1. 打开 WorkBuddy</a><a href="#step2">2. 打开知序的“开始使用”</a><a href="#step3">3. 首次接入 WorkBuddy</a><a href="#step4">4. 一次告诉助手你的情况</a><a href="#step5">5. 先上传一份资料</a><a href="#step6">6. 在“知识目录”查看结果</a><a href="#step7">7. 开始查资料、写材料和填表</a><a href="#step8">8. 以后每天怎么用</a><a href="#step9">遇到问题</a></aside><main><span class="eyebrow">知序 · 从第一份资料开始</span><h1>从打开 WorkBuddy<br>开始使用知序</h1>
+<p>适用：2026-10-26 本机部署版，接入包 0.8.0。配套网页教程：<a href="http://localhost:5878/zhixu-guide.html">http://localhost:5878/zhixu-guide.html</a> 。</p>
+<p>知序帮你保存原文件、整理可查看的知识目录，再让 WorkBuddy 从资料里找依据、写材料和填表。第一次不用理解 Skill、MCP 或腾讯 Memory，按下面操作即可。</p>
+<section id="step1"><h2>1. 打开 WorkBuddy</h2>
+<p>在 Mac 的“应用程序”或 Dock 打开 <strong>WorkBuddy</strong>，登录自己的账号。当前核对版本是 5.9.1。先打开到主窗口即可，第一次接入不必自己寻找连接器或编写配置。</p>
+<p>本机服务已部署。以后重启电脑，先打开 Docker Desktop，等它就绪，再双击 <strong>启动知序.command</strong>。本机文件位于 <code>/Users/alex/workspace/agent-knowledge-base/启动知序.command</code>；可在 Finder 按 Command + Shift + G，粘贴 <code>/Users/alex/workspace/agent-knowledge-base</code> 打开所在文件夹。看到“知序已启动”即可，关闭这个启动窗口不会停止后台服务。</p>
+</section>
+<section id="step2"><h2>2. 打开知序的“开始使用”</h2>
+<p>在同一台电脑的浏览器打开 <a href="http://localhost:5878/start">http://localhost:5878/start</a> ，登录自己的文件空间账号。</p>
+<p>如果看到“启用当前文件账号的知识库”，在网页里输入文件空间密码，点 <strong>启用我的知识库</strong>。如果以前已有资料库，使用“已有知序资料库？关联已有账号”并核对账号。密码只在网页输入，不发给 WorkBuddy。</p>
+<p>如果已经显示“你的助手已连接”或“继续刚才的 WorkBuddy 对话”，直接看对应提示，不重复创建知识库。</p>
+</section>
+<section id="step3"><h2>3. 首次接入 WorkBuddy</h2>
+<p>点 <strong>在 WorkBuddy 接入并开始</strong>。浏览器询问是否打开 WorkBuddy 时选择允许。切到 WorkBuddy，检查它准备好的安装请求并点 <strong>发送</strong>；按客户端真实提示确认本次知序连接的权限。</p>
+<p>安装后，助手应在同一对话核对连接、开始了解需求。无需回网页再点击“初始化”。当前是本机接入包，尚未上架 WorkBuddy 市场；“打开了应用”或“下载了包”还不代表连接成功。</p>
+<p>已装过管家时：WorkBuddy 左侧 <strong>专家·技能·连接器 → 我的专家</strong> 中查找 <strong>知序知识库管家</strong>；有多份同名管家时，从当前网页的恢复入口进入，避免连错资料库。旧安装界面可能显示“个人知识库管家”。</p>
+</section>
+<section id="step4"><h2>4. 一次告诉助手你的情况</h2>
+<p>可以把称呼、工作或学习身份、最想先做的事一起说，不需要逐题作答。不想提供的可以说“跳过”。下面只是示例，请换成自己的信息：</p>
+<div class="sample"><blockquote>可以叫我小林。我是一名教师，想先把简历、教学和科研材料整理好，以后用于查资料和填申报表。不确定的信息先问我。</blockquote><button type="button" class="copy">复制这段话</button></div>
+<p>助手保存进度后，直接继续处理资料。首次介绍用于了解需求；正式填表中的职称、金额、日期等还要有资料依据。</p>
+<p>助手还会让你选择是否检索本机文档，可以不开启、选择目录，或选择个人主目录内的全部受支持文档。系统文件、隐藏文件、凭据和链接会排除，外置磁盘需另外选择。原件先留在电脑；相关正文片段交给 WorkBuddy 阅读时，会由它使用的模型处理。</p>
+<p>例如可以接着说：“请索引我的教学和科研目录。允许你挑选与履历、项目、教学成果相关的重要原件收录到当前知识库，累计不超过1GB，并把相对文件清单显示在知识目录里。其他文件只在本机检索。”请补充实际目录路径；不清楚路径时让助手帮你选择。</p>
+<p>自动收录和共享清单均可单独关闭。扫描进度在对话里查看，扫描完成表示可检索；只有助手实际读过并整理的资料才会生成知识页。</p>
+</section>
+<section id="step5"><h2>5. 先上传一份资料</h2>
+<p>浏览器回到“我的文件”，用 <strong>新建</strong> 菜单中的上传入口，或把文件拖进文件列表。先用一份简历或工作总结即可。也可以在 WorkBuddy 对话中提供明确的本机文件路径，并说“请将这个文件上传到当前知序知识库”。不要只发一个文件名让助手猜路径。</p>
+<p>支持 Word、Excel、PPT、PDF、图片、文本等常见资料。单文件上传上限 <strong>2 GiB</strong>，还受账号剩余空间限制。Office 在线预览上限 <strong>100 MiB</strong>；复杂表格、图片和扫描件可能只能部分解析，上传成功不等于内容都已识别。</p>
+<p>上传后会在后台解析。对 WorkBuddy 说：</p>
+<div class="sample"><blockquote>请读取我刚上传的资料，按身份、工作、项目、成果整理知识目录，保留人工修改；区分我的资料和收藏的参考资料，每项重要结论保留原文出处。</blockquote><button type="button" class="copy">复制这段话</button></div>
+<p>WorkBuddy 没有执行任务时，后台能解析原件，语义归纳会等待助手继续。首次尽量少传几份，确认效果后再批量添加。</p>
+</section>
+<section id="step6"><h2>6. 在“知识目录”查看结果</h2>
+<p>浏览器点击侧栏 <strong>知识目录</strong>，点开知识页，检查摘要和“事实出处”。这里和助手读取的是同一份目录。左侧“目录树”展示文件夹，知识目录展示整理后的主题和记忆。</p>
+<p>发现错误可点 <strong>修改</strong>。人工修改受到保护；新文件带来变化时，可让助手补充整理，保留人工内容。资料标为“待整理”时，让助手继续读取；“解析不完整”时请核查原件，不把摘要当成完整覆盖。</p>
+<p>授权共享本机清单后，下方“本机资料”会列出相对目录、最近同步时间和“本机已索引／已收录此版本”等状态。清单不代表原件已上传或当前在线；本机正文仍由对应电脑的 WorkBuddy 读取。</p>
+</section>
+<section id="step7"><h2>7. 开始查资料、写材料和填表</h2>
+<p>直接用日常语言说清用途、时间范围和结果格式。例如：</p>
+<div class="sample"><blockquote>从我的资料里找到最高学位、当前职称和工作单位，逐项给出文件名和原文位置。没有依据的留空。</blockquote><button type="button" class="copy">复制这段话</button></div>
+<div class="sample"><blockquote>根据我的资料填写这份 Word 表格，另存副本，保留格式和人工备注。区分职务与职称、毕业日期与学位日期；金额按表格单位填写。写完后重新读取文件核对。</blockquote><button type="button" class="copy">复制这段话</button></div>
+<div class="sample"><blockquote>汇总我在 2025 年主持且已结题项目的批准经费，按项目编号去重，分别给出元和万元；不要把到账或支出当成批准额。</blockquote><button type="button" class="copy">复制这段话</button></div>
+<p>先把空白 Word 模板交给助手，或提供其可访问的网页地址。网页如需登录，由你完成登录。填完先检查实际保存结果和原文依据，再决定是否提交到外部系统；没有给出的手机号、日期等不应被补猜。写作风格可以改，事实、角色和金额仍需核对。</p>
+</section>
+<section id="step8"><h2>8. 以后每天怎么用</h2>
+<ul>
+<li>已有管家：打开 WorkBuddy 的知序管家继续对话，连接正常就直接说任务，不必重新安装或初始化。</li>
+<li>加了新资料：“只整理新增和变化的资料，更新目录，保留人工修改与历史记录。”</li>
+<li>本机文件修改后：“增量检查已授权的本机目录，只整理变化的资料，再核对我要填写的内容。”当前版本在下次扫描发现变化，没有安装常驻监听器。正式读取和收录还会重新校验原件哈希。</li>
+<li>换了新对话：“先恢复我的知识目录和偏好，再继续整理资料。”</li>
+<li>想保存偏好：“请记住，我希望先给结论，再列出处。”</li>
+<li>不想保留某条记忆：“请忘记这条偏好。”删除记忆与删除原文件是两件事；删除文件请明确对象并核对。</li>
+<li>空间将满：“查看剩余空间，列出可归档或删除的建议，先不要删文件。”</li>
+</ul>
+</section>
+<section id="step9"><h2>遇到问题</h2>
+<ul>
+<li><strong>网页打不开</strong>：先打开 Docker Desktop，再双击“启动知序.command”。localhost 只指当前电脑，手机或另一台电脑不能直接用这个地址。</li>
+<li><strong>没有打开 WorkBuddy或没有预填文字</strong>：展开开始页“没有自动打开或需要其他接入方式？”，使用“重新打开 WorkBuddy”或“复制恢复对话指令”，粘贴后发送。复制内容按当前资料库生成，不使用别人的指令。</li>
+<li><strong>助手说工具不可用</strong>：按 WorkBuddy 的授权提示处理。可在“专家·技能·连接器 → 连接器 → 自定义连接器”核对当前知序连接并关闭再开启；本版新增8个本机文档工具，共35个。刷新后回对话继续，确实未加载时再新建管家对话。不要随便改用另一个 personal-knowledge 或盲测连接。旧技能可让助手读取 get_knowledge_context 返回的当前可信技能位置；同名包包含人工修改时先保留，再通过宿主正常更新。</li>
+<li><strong>安装提示同名内容不同</strong>：停止重复安装并联系部署者。现有安装或人工修改会被保留，不要手工覆盖配置。</li>
+<li><strong>等很久或模型超时</strong>：保留原对话，先让助手报告已完成项与未完成项，再继续剩余步骤；不要连续重发整个任务。本轮完整回归用过约 27 分钟，不能保证每次快速完成。</li>
+<li><strong>目录没更新</strong>：在“知识目录”点刷新，并让助手检查当前连接、原文是否解析完成，以及是否还有待整理资料。</li>
+</ul>
+<p>完成第一次体验的标志：助手能说出连接成功；你已上传一份资料；知识目录出现可打开的内容；至少一条结论能回到原文。仅看到“安装成功”还没有完成这四步。</p>
+</section><div id="copy-status" role="status" aria-live="polite"></div></main></div><footer>本机版 0.8.0 · 2026-10-31 · 语义整理由当前 WorkBuddy 对话执行</footer>
+<script>document.querySelectorAll('.copy').forEach(button=>button.addEventListener('click',async()=>{const text=button.previousElementSibling.innerText;try{await navigator.clipboard.writeText(text);button.textContent='已复制';document.querySelector('#copy-status').textContent='已复制，请切回 WorkBuddy 粘贴并发送。'}catch{document.querySelector('#copy-status').textContent='浏览器没有允许复制，请选中上方文字手动复制。'}}));</script></body></html>

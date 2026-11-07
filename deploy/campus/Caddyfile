@@ -1,0 +1,19 @@
+{
+ admin unix//run/pagebeak-admin.sock
+ auto_https off
+}
+:5879 {
+ bind 127.0.0.1
+ @backend path /healthz /v1/* /v2/* /mcp /mcp/* /.well-known/* /register /authorize /token /revoke
+ handle @backend {
+  reverse_proxy 127.0.0.1:5876
+ }
+ handle /api/* {
+  reverse_proxy 127.0.0.1:5878
+ }
+ handle {
+  root * /srv/frontend
+  try_files {path} /index.html
+  file_server
+ }
+}

@@ -1,0 +1,26 @@
+# Linux only: localhost service links use the host network. This file adds one
+# isolated application process group to the existing project's private DB/files.
+# Run only after preflight, fresh-directory provisioning and explicit migrations.
+# Runtime preflight artifact, not a complete campus release: Office previews still
+# require a host-side isolated conversion runner. Never mount the Docker socket.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: deploy/campus/Dockerfile
+    image: zhixu-campus:0.9.0
+    restart: unless-stopped
+    network_mode: host
+    init: true
+    cpus: 2
+    mem_limit: 4g
+    pids_limit: 512
+    security_opt:
+      - no-new-privileges:true
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./secrets:/app/secrets
+    depends_on:
+      postgres:
+        condition: service_healthy

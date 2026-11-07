@@ -1,0 +1,16 @@
+.git
+.venv
+.workbuddy
+.env
+.env.*
+!.env.example
+work
+data
+secrets
+outputs
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/*.log
+web/dist

@@ -1,0 +1,42 @@
+name: agent-knowledge-base
+services:
+  cloudreve:
+    restart: unless-stopped
+    profiles: [cloudreve]
+    image: cloudreve/cloudreve:4.19.1@sha256:5c6c5baf7fa5bc6e1bb9a7509c09dde00e80b618d180244eb1d5f7e36b358ea2
+    entrypoint: ["/cloudreve/cloudreve"]
+    command: ["server"]
+    ports:
+      - "127.0.0.1:5878:5212"
+    volumes:
+      - akb_cloudreve:/cloudreve/data
+    environment:
+      CR_SETTING_DEFAULT_thumb_ffmpeg_enabled: "0"
+      CR_SETTING_DEFAULT_thumb_vips_enabled: "0"
+      CR_SETTING_DEFAULT_thumb_libreoffice_enabled: "0"
+      CR_SETTING_DEFAULT_media_meta_ffprobe: "0"
+      CR_SETTING_DEFAULT_thumb_libraw_enabled: "0"
+  postgres:
+    restart: unless-stopped
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${AKB_POSTGRES_PASSWORD:?Run scripts/setup_local.py first}
+      POSTGRES_DB: akb
+    ports:
+      - "127.0.0.1:55471:5432"
+    volumes:
+      - akb_postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d akb"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+volumes:
+  akb_cloudreve:
+  akb_postgres:
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 10.223.71.0/24
